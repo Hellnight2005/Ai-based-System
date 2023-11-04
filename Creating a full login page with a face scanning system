@@ -1,0 +1,73 @@
+1) First, make sure you have Flask and face_recognition installed. You can install them using pip:
+  pip install flask
+  pip install face_recognition
+
+2) Create a directory structure for your project:
+/your_project
+    /static
+        /images
+            user1.jpg
+            user2.jpg
+            ...
+    /templates
+        login.html
+    app.py
+
+
+3) Create the "app.py" file:
+from flask import Flask, render_template, request, redirect, url_for, session, flash
+import face_recognition
+import os
+
+app = Flask(__name__)
+app.secret_key = 'your_secret_key'
+
+# Load and encode known user faces
+known_faces = {}
+for filename in os.listdir('static/images'):
+    if filename.endswith('.jpg'):
+        user_image = face_recognition.load_image_file(os.path.join('static/images', filename))
+        user_face_encoding = face_recognition.face_encodings(user_image)[0]
+        known_faces[filename.split('.')[0]] = user_face_encoding
+
+@app.route('/')
+def login():
+    return render_template('login.html')
+
+@app.route('/authenticate', methods=['POST'])
+def authenticate():
+    username = request.form['username']
+    password = request.form['password']
+    user_image = request.files['image']
+
+    if username in known_faces and check_password(username, password):
+        user_face_encoding = known_faces[username]
+        unknown_image = face_recognition.load_image_file(user_image)
+        unknown_face_encoding = face_recognition.face_encodings(unknown_image)
+
+        if not unknown_face_encoding:
+            flash('Face recognition failed.')
+            return redirect(url_for('login'))
+
+        # Compare the user's face with the known face
+        result = face_recognition.compare_faces([user_face_encoding], unknown_face_encoding[0])
+        
+        if result[0]:
+            flash('Login successful!')
+            return redirect(url_for('login'))
+        else:
+            flash('Face recognition failed.')
+    else:
+        flash('Invalid username or password.')
+
+    return redirect(url_for('login'))
+
+def check_password(username, password):
+    # You can implement your own password checking logic here
+    # This is just a placeholder
+    return password == 'your_password'
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
